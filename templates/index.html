@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube ke MP3</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Figtree', sans-serif;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+    }
+
+    .striped-bar {
+      background-image: repeating-linear-gradient(
+        45deg,
+        rgba(255, 165, 0, 0.9),
+        rgba(255, 165, 0, 0.9) 10px,
+        rgba(255, 165, 0, 0.5) 10px,
+        rgba(255, 165, 0, 0.5) 20px
+      );
+      animation: progressMove 1s linear infinite;
+    }
+
+    @keyframes progressMove {
+      0% { background-position: 0 0; }
+      100% { background-position: 40px 0; }
+    }
+
+    .progress-wrapper {
+      position: relative;
+      width: 100%;
+      height: 20px;
+      background-color: #ddd;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .progress-inner {
+      height: 100%;
+      border-radius: 10px;
+      transition: width 0.4s ease-in-out;
+    }
+
+    .progress-bubble {
+      position: absolute;
+      top: -28px;
+      transform: translateX(-50%);
+      background: orange;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 50px;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center">
+  <div class="bg-white/5 backdrop-blur-md p-8 rounded-xl shadow-lg w-full max-w-md text-white border border-white/10">
+    <h1 class="text-2xl font-semibold text-white mb-6 text-center">
+      YouTube ke MP3
+    </h1>
+
+    <form id="convert-form" class="space-y-4">
+      <input type="text" name="url" id="url" placeholder="Masukkan URL YouTube"
+        class="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500" required>
+
+      <div>
+        <label class="block text-sm font-medium text-black mb-1">Kualitas Audio</label>
+        <select name="quality" id="quality"
+          class="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white">
+          <option value="128">128 kbps</option>
+          <option value="192" selected>192 kbps</option>
+          <option value="256">256 kbps</option>
+          <option value="320">320 kbps</option>
+        </select>
+      </div>
+
+      <button type="submit"
+        class="w-full bg-pink-700 hover:bg-pink-800 text-white px-4 py-2 rounded transition">Konversi</button>
+    </form>
+
+    <div id="progress-container" class="mt-6 hidden">
+      <p class="text-sm text-black mb-2" id="progress-status">Sedang diproses...</p>
+      <div class="progress-wrapper">
+        <div class="progress-inner striped-bar" id="progress-bar" style="width: 0%"></div>
+        <div class="progress-bubble" id="progress-label">0%</div>
+      </div>
+    </div>
+
+    <div id="download-link" class="mt-6 text-center hidden">
+      <a id="download-button" href="#" download
+         class="inline-flex items-center gap-2 bg-pink-700 text-white px-6 py-2 rounded-full shadow-md hover:bg-pink-800 transition-all duration-300">
+        ⬇️ Download MP3
+      </a>
+    </div>
+  </div>
+
+  <script>
+    // Background rolling dari static/
+    const backgrounds = ["bg.jpg", "bg1.jpg", "bg2.jpg", "bg3.jpg", "bg4.jpg", "bg5.jpg", "bg6.jpg"];
+    const randomBg = backgrounds[Math.floor(Math.random() * backgrounds.length)];
+    document.addEventListener("DOMContentLoaded", () => {
+      document.body.style.backgroundImage = `url('/static/${randomBg}')`;
+    });
+
+    // Konversi logic
+    const form = document.getElementById("convert-form");
+    const progressContainer = document.getElementById("progress-container");
+    const progressBar = document.getElementById("progress-bar");
+    const progressText = document.getElementById("progress-label");
+    const progressStatus = document.getElementById("progress-status");
+    const downloadLink = document.getElementById("download-link");
+    const downloadButton = document.getElementById("download-button");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const url = document.getElementById("url").value;
+      const quality = document.getElementById("quality").value;
+
+      progressContainer.classList.remove("hidden");
+      downloadLink.classList.add("hidden");
+      progressBar.style.width = "0%";
+      progressBar.className = "progress-inner striped-bar";
+      progressText.textContent = "0%";
+      progressText.style.left = "0%";
+      progressText.style.display = "block";
+      progressStatus.textContent = "📥 Sedang mengunduh video...";
+
+      const res = await fetch("/convert", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `url=${encodeURIComponent(url)}&quality=${quality}`
+      });
+
+      const data = await res.json();
+      const taskId = data.task_id;
+      pollProgress(taskId);
+    });
+
+    async function pollProgress(taskId) {
+      const interval = setInterval(async () => {
+        const res = await fetch(`/progress/${taskId}`);
+        const data = await res.json();
+
+        if (data.status === "downloading") {
+          const percent = parseFloat(data.progress.replace('%', ''));
+          progressBar.style.width = `${percent}%`;
+          progressText.textContent = `${percent}%`;
+          progressText.style.left = `min(${percent}%, 95%)`;
+          progressText.style.display = "block";
+
+          if (percent >= 90) {
+            progressStatus.textContent = "🔄 Mengonversi ke MP3...";
+          } else {
+            progressStatus.textContent = "📥 Sedang mengunduh video...";
+          }
+
+        } else if (data.status === "done") {
+          clearInterval(interval);
+          progressBar.style.width = "100%";
+          // Tetap pertahankan striping oranye
+          progressText.textContent = "100%";
+          progressText.style.left = `95%`;
+          progressText.style.display = "block";
+          progressStatus.textContent = "✅ Berhasil dikonversi!";
+          downloadButton.href = data.file;
+          downloadLink.classList.remove("hidden");
+
+        } else if (data.status === "error") {
+          clearInterval(interval);
+          progressBar.classList.remove("striped-bar");
+          progressBar.style.backgroundColor = "red";
+          progressText.textContent = "❌ Gagal";
+          progressStatus.textContent = "❌ Gagal: " + data.message;
+        }
+      }, 1000);
+    }
+  </script>
+</body>
+</html>
+
