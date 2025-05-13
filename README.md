@@ -2,7 +2,8 @@
 
 Tool konversi YouTube ke MP3 berbasis **Flask** dan **TailwindCSS** dengan tampilan clean, progress bar animasi, dan status realtime.
 
-![Preview UI](https://github.com/yonaldi1979/ytdownload/assets/preview.jpg) <!-- Ganti dengan URL gambar jika mau -->
+![Preview UI](https://raw.githubusercontent.com/yonaldi1979/ytdownload/main/assets/ui-preview.png)
+
 
 ---
 
